@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TemuAcak – Video Chat Acak</title>
+<style>
+:root {
+  --bg: #12101a;
+  --panel: #1c1828;
+  --panel-2: #262036;
+  --ink: #f4effb;
+  --muted: #a99fc0;
+  --accent: #ff5c93;
+  --accent-2: #7c5cff;
+  --ok: #3ddc97;
+  --radius: 16px;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  display: flex; flex-direction: column;
+}
+.hidden { display: none !important; }
+
+/* ===== Gerbang 18+ ===== */
+.gate {
+  position: fixed; inset: 0; z-index: 50; background: rgba(8, 6, 14, .92);
+  display: grid; place-items: center; padding: 16px; overflow: auto;
+}
+.gate-card {
+  max-width: 520px; width: 100%; background: var(--panel); border-radius: 20px; padding: 24px;
+  border: 1px solid #352d4a;
+}
+.gate-card h2 { margin: 0 0 6px; font-size: 1.4rem; }
+.gate-card p { color: var(--muted); margin: 0 0 12px; }
+.gate-card ul { margin: 0 0 16px; padding-left: 20px; color: var(--ink); font-size: .93rem; line-height: 1.55; }
+.gate-card label { display: flex; gap: 10px; align-items: flex-start; font-size: .93rem; margin-bottom: 16px; cursor: pointer; }
+.gate-card input[type=checkbox] { margin-top: 3px; width: 18px; height: 18px; }
+
+/* ===== Header ===== */
+.bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 18px; border-bottom: 1px solid #2a2340;
+}
+.logo { font-weight: 800; font-size: 1.35rem; letter-spacing: .02em; }
+.logo span { background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.bar label { font-size: .85rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+select {
+  background: var(--panel-2); color: var(--ink); border: 1px solid #3a3152; border-radius: 10px;
+  padding: 8px 10px; font-size: .9rem;
+}
+
+/* ===== Layout utama ===== */
+.app {
+  flex: 1; min-height: 0; display: grid; gap: 14px; padding: 14px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+.left { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.stage {
+  position: relative; flex: 1; min-height: 260px; background: #0b0911; border-radius: var(--radius);
+  overflow: hidden; border: 1px solid #2a2340;
+}
+#remoteVideo { width: 100%; height: 100%; object-fit: cover; display: block; background: #0b0911; transition: filter .25s; }
+#remoteVideo.blurred { filter: blur(34px) brightness(.8); }
+.overlay {
+  position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px;
+  background: radial-gradient(circle at 50% 40%, #241d38, #0b0911 70%); color: var(--muted); font-size: 1.05rem;
+}
+.reveal {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  border: 0; border-radius: 999px; padding: 12px 20px; font-weight: 700; cursor: pointer;
+  background: rgba(0,0,0,.65); color: #fff; backdrop-filter: blur(4px);
+}
+.pip {
+  position: absolute; right: 12px; bottom: 12px; width: min(30%, 220px); aspect-ratio: 4 / 3;
+  border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,.7); background: #000;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5);
+}
+.pip video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+.pip span {
+  position: absolute; left: 6px; bottom: 6px; font-size: .72rem; background: rgba(0,0,0,.6);
+  padding: 2px 8px; border-radius: 999px;
+}
+
+.controls { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn {
+  border: 0; cursor: pointer; font-weight: 700; font-size: .95rem; color: var(--ink);
+  background: var(--panel-2); padding: 12px 18px; border-radius: 999px; transition: transform .1s, opacity .2s;
+}
+.btn:active { transform: scale(.96); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff; }
+.btn.danger { background: #4a1f33; color: #ffb3cc; }
+.btn.off { background: #3a2230; color: #ff9db8; }
+.check { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: .85rem; }
+
+/* ===== Chat ===== */
+.chat {
+  display: flex; flex-direction: column; min-height: 0; background: var(--panel);
+  border-radius: var(--radius); border: 1px solid #2a2340; overflow: hidden;
+}
+.msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.msg { max-width: 88%; padding: 9px 13px; border-radius: 14px; font-size: .93rem; line-height: 1.4; word-wrap: break-word; overflow-wrap: anywhere; }
+.msg.me { align-self: flex-end; background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff; border-bottom-right-radius: 4px; }
+.msg.them { align-self: flex-start; background: var(--panel-2); border-bottom-left-radius: 4px; }
+.msg.sys { align-self: center; background: transparent; color: var(--muted); font-size: .8rem; text-align: center; }
+.chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #2a2340; }
+.chat-form input {
+  flex: 1; min-width: 0; background: var(--panel-2); color: var(--ink); border: 1px solid #3a3152;
+  border-radius: 999px; padding: 11px 16px; font-size: .95rem;
+}
+.chat-form input:disabled { opacity: .5; }
+
+.foot { text-align: center; color: var(--muted); font-size: .75rem; padding: 6px 12px 10px; }
+
+@media (max-width: 860px) {
+  body { height: auto; min-height: 100%; }
+  .app { grid-template-columns: 1fr; }
+  .stage { aspect-ratio: 4 / 3; min-height: 0; flex: none; }
+  .chat { height: 320px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Gerbang 18+ -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <h2>🔞 Khusus 18 Tahun ke Atas</h2>
+    <p>TemuAcak mempertemukanmu dengan orang asing lewat video secara acak.</p>
+    <ul>
+      <li>Hanya untuk usia <b>18 tahun ke atas</b>. Kalau kamu di bawah 18, jangan lanjutkan.</li>
+      <li>Dilarang menampilkan konten seksual, kekerasan, atau melakukan pelecehan.</li>
+      <li>Jangan membagikan data pribadi (alamat, nomor HP, sekolah, rekening).</li>
+      <li>Jangan merekam atau men-screenshot orang lain tanpa izin.</li>
+      <li>Situs ini <b>tidak punya moderator</b>. Kamu bisa menekan <b>Next</b> atau <b>Stop</b> kapan saja. Video stranger diburamkan secara default.</li>
+    </ul>
+    <label><input type="checkbox" id="agree"> Saya berusia 18 tahun atau lebih dan menyetujui aturan di atas.</label>
+    <button id="btnEnter" class="btn primary" disabled>Lanjut</button>
+  </div>
+</div>
+
+<header class="bar">
+  <div class="logo">💬 Temu<span>Acak</span></div>
+  <label>Lobi
+    <select id="lobby">
+      <option value="umum">Umum</option>
+      <option value="id">Indonesia</option>
+      <option value="santai">Ngobrol santai</option>
+      <option value="game">Gaming</option>
+    </select>
+  </label>
+</header>
+
+<main class="app">
+  <section class="left">
+    <div class="stage">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <div id="overlay" class="overlay"><div id="overlayText">Tekan <b>Mulai</b> untuk mencari teman bicara.</div></div>
+      <button id="btnReveal" class="reveal hidden">👁 Tampilkan video</button>
+      <div class="pip">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <span>Kamu</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="btnStart" class="btn primary">▶ Mulai</button>
+      <button id="btnStop" class="btn danger" disabled>■ Stop</button>
+      <button id="btnMic" class="btn" disabled>🎤 Mic</button>
+      <button id="btnCam" class="btn" disabled>📷 Kamera</button>
+      <button id="btnBlur" class="btn" disabled>🙈 Buramkan</button>
+    </div>
+    <label class="check"><input type="checkbox" id="safeMode" checked> Mode aman: video stranger diburamkan sampai saya menampilkannya</label>
+  </section>
+
+  <aside class="chat">
+    <div id="msgs" class="msgs"><div class="msg sys">Chat teks akan muncul di sini setelah terhubung.</div></div>
+    <form id="chatForm" class="chat-form">
+      <input id="chatInput" type="text" maxlength="500" placeholder="Ketik pesan…" autocomplete="off" disabled>
+      <button id="btnSend" class="btn primary" disabled>Kirim</button>
+    </form>
+  </aside>
+</main>
+
+<div class="foot">Video dikirim langsung antar perangkat (peer-to-peer) dan tidak direkam. Gunakan dengan bijak.</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(() => {
+  "use strict";
+
+  // ====== Konfigurasi ======
+  const APP = "temuacak1";
+  const SLOTS = 16;                 // jumlah "loket" pertemuan per lobi
+  const myUid = Math.random().toString(36).slice(2, 10);
+  const slotId = (lobby, i) => `${APP}-${lobby}-s${i}`;
+
+  // ====== Elemen ======
+  const $ = (id) => document.getElementById(id);
+  const gate = $("gate"), agree = $("agree"), btnEnter = $("btnEnter");
+  const lobbySel = $("lobby");
+  const remoteVideo = $("remoteVideo"), localVideo = $("localVideo");
+  const overlay = $("overlay"), overlayText = $("overlayText"), btnReveal = $("btnReveal");
+  const btnStart = $("btnStart"), btnStop = $("btnStop"), btnMic = $("btnMic"), btnCam = $("btnCam"), btnBlur = $("btnBlur");
+  const safeMode = $("safeMode");
+  const msgs = $("msgs"), chatForm = $("chatForm"), chatInput = $("chatInput"), btnSend = $("btnSend");
+
+  // ====== State ======
+  let localStream = null;
+  let connector = null;             // Peer ber-ID acak, dipakai untuk menghubungi orang lain
+  let hostPeer = null;              // Peer ber-ID "loket", dipakai saat menunggu
+  let hostState = "idle";           // idle | waiting | reserved | probing | busy
+  let pending = null;               // {conn, uid} tamu yang sedang dicadangkan
+  let session = null;               // {conn, call, role, partnerUid}
+  let searchToken = 0;              // naik setiap pencarian baru / stop -> membatalkan yang lama
+  let uiState = "idle";
+  let probeErrHandler = null;
+  let scanTimer = null;
+  let reserveTimer = null;
+  let hostWaitResolve = null;
+  let avoid = null;                 // {uid, until}
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const safeClose = (x) => { try { x && x.close(); } catch (_) {} };
+
+  // ====== Gerbang 18+ ======
+  try { if (sessionStorage.getItem("ta18") === "1") gate.classList.add("hidden"); } catch (_) {}
+  agree.addEventListener("change", () => { btnEnter.disabled = !agree.checked; });
+  btnEnter.addEventListener("click", () => {
+    try { sessionStorage.setItem("ta18", "1"); } catch (_) {}
+    gate.classList.add("hidden");
+  });
+
+  // ====== UI ======
+  function setOverlay(text) { overlayText.textContent = text; }
+
+  function setUI(st) {
+    uiState = st;
+    const connected = st === "connected";
+    chatInput.disabled = !connected;
+    btnSend.disabled = !connected;
+    btnStop.disabled = st === "idle";
+    btnBlur.disabled = !connected;
+    btnStart.textContent = st === "idle" ? "▶ Mulai" : "⏭ Next";
+    overlay.classList.toggle("hidden", connected);
+    if (!connected) { btnReveal.classList.add("hidden"); remoteVideo.classList.remove("blurred"); }
+    if (st === "starting") setOverlay("Meminta akses kamera…");
+    if (st === "searching") setOverlay("Mencari stranger… 🔎");
+    if (st === "ended") setOverlay("Stranger keluar. Mencari lagi…");
+    if (st === "idle" && !overlayText.dataset.keep) setOverlay("Tekan Mulai untuk mencari teman bicara.");
+    delete overlayText.dataset.keep;
+  }
+
+  function showError(text) {
+    overlayText.dataset.keep = "1";
+    setUI("idle");
+    setOverlay(text);
+  }
+
+  function setBlur(on) {
+    remoteVideo.classList.toggle("blurred", on);
+    btnReveal.classList.toggle("hidden", !on);
+    btnBlur.textContent = on ? "👁 Tampilkan" : "🙈 Buramkan";
+  }
+
+  function addMsg(text, cls) {
+    const d = document.createElement("div");
+    d.className = "msg " + cls;
+    d.textContent = text;
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function isAvoided(uid) {
+    return !!(avoid && uid && avoid.uid === uid && Date.now() < avoid.until);
+  }
+  function setAvoid(uid) {
+    if (uid) avoid = { uid, until: Date.now() + 20000 };   // hindari bertemu orang yang sama selama 20 detik
+  }
+
+  // ====== Kamera ======
+  async function getLocalStream() {
+    if (localStream && localStream.active) return localStream;
+    const video = { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" };
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        video, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+    } catch (e) {
+      localStream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+    }
+    localVideo.srcObject = localStream;
+    try { await localVideo.play(); } catch (_) {}
+    const hasAudio = localStream.getAudioTracks().length > 0;
+    btnMic.disabled = !hasAudio;
+    btnMic.textContent = hasAudio ? "🎤 Mic" : "🎤 Tanpa mic";
+    btnCam.disabled = false;
+    return localStream;
+  }
+
+  // ====== Koneksi: peer pengubung (ID acak) ======
+  function ensureConnector() {
+    if (connector && !connector.destroyed && connector.open) return Promise.resolve(connector);
+    return new Promise((resolve, reject) => {
+      if (typeof Peer === "undefined") { reject({ type: "peerjs-gagal-dimuat" }); return; }
+      safeDestroy(connector);
+      const p = new Peer();
+      connector = p;
+      let settled = false;
+      const timer = setTimeout(() => { if (!settled) { settled = true; reject({ type: "timeout" }); } }, 12000);
+      p.on("open", () => { if (!settled) { settled = true; clearTimeout(timer); resolve(p); } });
+      p.on("error", (err) => {
+        if (probeErrHandler) { probeErrHandler(err); return; }
+        if (!settled) { settled = true; clearTimeout(timer); reject(err); }
+      });
+      p.on("disconnected", () => { if (!p.destroyed) { try { p.reconnect(); } catch (_) {} } });
+    });
+  }
+
+  function safeDestroy(p) { try { p && !p.destroyed && p.destroy(); } catch (_) {} }
+
+  // Cek satu loket: 'empty' | 'waiting' | 'busy' | 'error'
+  function probeSlot(lobby, i) {
+    return new Promise((resolve) => {
+      const target = slotId(lobby, i);
+      let done = false, timer = null, conn = null;
+      const finish = (r) => {
+        if (done) return;
+        done = true; clearTimeout(timer); probeErrHandler = null;
+        resolve(r);
+      };
+      probeErrHandler = (err) => finish({ state: err.type === "peer-unavailable" ? "empty" : "error" });
+      try { conn = connector.connect(target, { reliable: true }); } catch (_) { return finish({ state: "error" }); }
+      timer = setTimeout(() => { safeClose(conn); finish({ state: "busy" }); }, 5000);
+      conn.on("open", () => { try { conn.send({ type: "hello", uid: myUid }); } catch (_) {} });
+      conn.on("data", (msg) => {
+        if (done || !msg || msg.type !== "status") return;
+        if (msg.state === "waiting" && !isAvoided(msg.uid)) finish({ state: "waiting", conn, target, uid: msg.uid });
+        else { safeClose(conn); finish({ state: "busy" }); }
+      });
+      conn.on("error", () => finish({ state: "busy" }));
+      conn.on("close", () => finish({ state: "busy" }));
+    });
+  }
+
+  // Panggil host yang sedang menunggu
+  function callHost(found, token) {
+    return new Promise((resolve) => {
+      const { conn, target, uid } = found;
+      let done = false;
+      let call;
+      try { call = connector.call(target, localStream); } catch (_) { safeClose(conn); resolve(false); return; }
+      const fail = () => {
+        if (done) return;
+        done = true; clearTimeout(t);
+        safeClose(call); safeClose(conn);
+        resolve(false);
+      };
+      const t = setTimeout(fail, 10000);
+      call.on("stream", (rs) => {
+        if (done) return;
+        done = true; clearTimeout(t);
+        if (token !== searchToken) { safeClose(call); safeClose(conn); resolve(false); return; }
+        beginSession({ conn, call, role: "guest", stream: rs, partnerUid: uid });
+        resolve(true);
+      });
+      call.on("error", fail);
+      call.on("close", fail);
+    });
+  }
+
+  // ====== Koneksi: klaim loket & menunggu ======
+  function claimSlot(lobby, i) {
+    return new Promise((resolve) => {
+      const p = new Peer(slotId(lobby, i));
+      let settled = false;
+      const timer = setTimeout(() => { if (!settled) { settled = true; safeDestroy(p); resolve(false); } }, 8000);
+      p.on("open", () => { if (!settled) { settled = true; clearTimeout(timer); hostPeer = p; resolve(true); } });
+      p.on("error", () => { if (!settled) { settled = true; clearTimeout(timer); safeDestroy(p); resolve(false); } });
+      p.on("disconnected", () => { if (settled && !p.destroyed) { try { p.reconnect(); } catch (_) {} } });
+    });
+  }
+
+  function destroyHost() {
+    hostState = "idle";
+    pending = null;
+    clearTimeout(reserveTimer);
+    safeDestroy(hostPeer);
+    hostPeer = null;
+  }
+
+  function waitAsHost(lobby, i, token) {
+    return new Promise((resolve) => {
+      hostWaitResolve = resolve;
+      hostState = "waiting";
+      const p = hostPeer;
+
+      p.on("connection", (c) => {
+        c.on("data", (msg) => {
+          if (!msg || msg.type !== "hello") return;
+          const ok = token === searchToken && hostState === "waiting" && !session && !isAvoided(msg.uid);
+          if (!ok) {
+            try { c.send({ type: "status", state: "busy", uid: myUid }); } catch (_) {}
+            setTimeout(() => safeClose(c), 400);
+            return;
+          }
+          hostState = "reserved";
+          pending = { conn: c, uid: msg.uid };
+          try { c.send({ type: "status", state: "waiting", uid: myUid }); } catch (_) {}
+          clearTimeout(reserveTimer);
+          reserveTimer = setTimeout(() => {
+            if (hostState === "reserved") { hostState = "waiting"; pending = null; safeClose(c); }
+          }, 10000);
+        });
+        c.on("close", () => {
+          if (hostState === "reserved" && pending && pending.conn === c) { hostState = "waiting"; pending = null; }
+        });
+      });
+
+      p.on("call", (call) => {
+        if (token !== searchToken || hostState !== "reserved" || !pending) { safeClose(call); return; }
+        const pend = pending;
+        call.answer(localStream);
+        call.on("stream", (rs) => {
+          if (session || hostState !== "reserved") return;
+          clearTimeout(reserveTimer);
+          hostState = "busy";
+          beginSession({ conn: pend.conn, call, role: "host", stream: rs, partnerUid: pend.uid });
+        });
+      });
+
+      // Jika menunggu di loket > 0, sesekali cek loket yang lebih rendah
+      // supaya dua orang yang menunggu di loket berbeda tetap bisa bertemu.
+      clearInterval(scanTimer);
+      if (i > 0) scanTimer = setInterval(() => scanLower(lobby, i, token), 7000);
+    });
+  }
+
+  async function scanLower(lobby, i, token) {
+    if (hostState !== "waiting" || token !== searchToken || session) return;
+    hostState = "probing";
+    let joined = false;
+    for (let j = 0; j < i && token === searchToken && !joined; j++) {
+      const r = await probeSlot(lobby, j);
+      if (r.state === "waiting") joined = await callHost(r, token);
+    }
+    if (!joined && hostState === "probing") hostState = "waiting";
+  }
+
+  // ====== Pencarian ======
+  async function startSearch() {
+    const token = ++searchToken;
+    cleanupSession();
+    setUI("starting");
+
+    try { await getLocalStream(); }
+    catch (e) {
+      if (token !== searchToken) return;
+      showError("Kamera tidak bisa diakses (" + ((e && e.name) || "error") + "). Izinkan kamera & mikrofon, dan buka situs lewat HTTPS.");
+      return;
+    }
+    if (token !== searchToken) return;
+
+    try { await ensureConnector(); }
+    catch (e) {
+      if (token !== searchToken) return;
+      showError("Tidak bisa terhubung ke server pertemuan (" + ((e && e.type) || "error") + "). Coba lagi sebentar lagi.");
+      return;
+    }
+    if (token !== searchToken) return;
+
+    setUI("searching");
+    const lobby = lobbySel.value;
+
+    while (token === searchToken) {
+      for (let i = 0; i < SLOTS; i++) {
+        if (token !== searchToken) return;
+        let attempts = 0;
+        while (attempts < 3) {
+          attempts++;
+          const r = await probeSlot(lobby, i);
+          if (token !== searchToken) { safeClose(r.conn); return; }
+          if (r.state === "waiting") {
+            if (await callHost(r, token)) return;
+            break;
+          }
+          if (r.state === "empty") {
+            const ok = await claimSlot(lobby, i);
+            if (token !== searchToken) { destroyHost(); return; }
+            if (ok) { await waitAsHost(lobby, i, token); return; }
+            continue;                       // loket keburu diambil orang lain -> cek lagi
+          }
+          break;                            // busy / error -> loket berikutnya
+        }
+      }
+      await sleep(1500);                    // semua loket penuh -> ulangi
+    }
+  }
+
+  // ====== Sesi ======
+  function beginSession(s) {
+    session = s;
+    clearInterval(scanTimer); scanTimer = null;
+    if (s.role === "guest") destroyHost();
+    if (hostWaitResolve) { hostWaitResolve(); hostWaitResolve = null; }
+
+    remoteVideo.srcObject = s.stream;
+    remoteVideo.play().catch(() => {});
+    msgs.innerHTML = "";
+    addMsg("Terhubung dengan stranger. Sapa dulu 👋 Kamu bisa menekan Next kapan saja.", "sys");
+    setUI("connected");
+    setBlur(safeMode.checked);
+
+    s.conn.on("data", (msg) => {
+      if (msg && msg.type === "chat" && typeof msg.text === "string") addMsg(msg.text.slice(0, 500), "them");
+    });
+    const gone = () => onPartnerGone(s);
+    s.conn.on("close", gone);
+    s.conn.on("error", gone);
+    s.call.on("close", gone);
+    s.call.on("error", gone);
+  }
+
+  function onPartnerGone(s) {
+    if (session !== s) return;
+    setAvoid(s.partnerUid);
+    cleanupSession();
+    setUI("ended");
+    setTimeout(() => { if (uiState === "ended") startSearch(); }, 800);
+  }
+
+  function cleanupSession() {
+    clearInterval(scanTimer); scanTimer = null;
+    const s = session;
+    session = null;
+    if (s) { safeClose(s.call); safeClose(s.conn); }
+    remoteVideo.srcObject = null;
+    destroyHost();
+    if (hostWaitResolve) { hostWaitResolve(); hostWaitResolve = null; }
+  }
+
+  function next() {
+    if (session) setAvoid(session.partnerUid);
+    startSearch();
+  }
+
+  function stopAll() {
+    searchToken++;
+    cleanupSession();
+    setUI("idle");
+  }
+
+  // ====== Event ======
+  btnStart.addEventListener("click", () => {
+    if (!gate.classList.contains("hidden")) return;
+    if (uiState === "idle") startSearch(); else next();
+  });
+  btnStop.addEventListener("click", stopAll);
+  lobbySel.addEventListener("change", () => { if (uiState !== "idle") startSearch(); });
+
+  btnReveal.addEventListener("click", () => setBlur(false));
+  btnBlur.addEventListener("click", () => setBlur(!remoteVideo.classList.contains("blurred")));
+
+  btnMic.addEventListener("click", () => {
+    const t = localStream && localStream.getAudioTracks()[0];
+    if (!t) return;
+    t.enabled = !t.enabled;
+    btnMic.textContent = t.enabled ? "🎤 Mic" : "🔇 Mic mati";
+    btnMic.classList.toggle("off", !t.enabled);
+  });
+  btnCam.addEventListener("click", () => {
+    const t = localStream && localStream.getVideoTracks()[0];
+    if (!t) return;
+    t.enabled = !t.enabled;
+    btnCam.textContent = t.enabled ? "📷 Kamera" : "🚫 Kamera mati";
+    btnCam.classList.toggle("off", !t.enabled);
+  });
+
+  chatForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (!text || !session) return;
+    try { session.conn.send({ type: "chat", text: text.slice(0, 500) }); addMsg(text, "me"); }
+    catch (_) { addMsg("Pesan gagal terkirim.", "sys"); }
+    chatInput.value = "";
+  });
+
+  window.addEventListener("beforeunload", () => {
+    searchToken++;
+    cleanupSession();
+    safeDestroy(connector);
+    if (localStream) localStream.getTracks().forEach((t) => t.stop());
+  });
+})();
+</script>
+</body>
+</html>
